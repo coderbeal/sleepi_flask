@@ -1,0 +1,14 @@
+Lib/
+db/
+__pycache__/
+Scripts/
+analysis_scans/
+include/
+matrix_scans/
+output/
+dist/
+build/
+assets2/
+content/
+uploads/
+old/

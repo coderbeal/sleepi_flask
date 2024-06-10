@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Upload and Overlay Image</title>
+    <style>
+        #canvas {
+            border: 1px solid black;
+            position: relative;
+            display: inline-block;
+            overflow: hidden;
+            max-width: 800px; /* Maximum width to fit within viewport */
+            max-height: 600px; /* Maximum height to fit within viewport */
+        }
+        #uploadedImage {
+            display: block;
+            width: 100%; /* Fit the image within the canvas */
+            height: auto;
+        }
+        #sleepi {
+            position: absolute;
+            top: 0;
+            left: 0;
+            cursor: move;
+            resize: both;
+            overflow: hidden;
+            width: 20%; /* Initial size of Sleepi */
+            height: auto; /* Maintain aspect ratio */
+            transform-origin: center center;
+        }
+    </style>
+</head>
+<body>
+    <h1>Upload an Image</h1>
+    <form id="uploadForm" action="/upload" method="post" enctype="multipart/form-data">
+        <input type="file" name="file" id="fileInput">
+        <input type="submit" value="Upload">
+    </form>
+    <div id="canvas" style="display: none;">
+        <img id="uploadedImage" src="" alt="Uploaded Image">
+        <img id="sleepi" src="/static/sleepi.png" alt="Sleepi Image">
+    </div>
+    <div id="controls" style="display: none;">
+        <label for="scale">Scale Sleepi:</label>
+        <input type="range" id="scale" name="scale" min="10" max="200" value="100">
+        <label for="rotate">Rotate Sleepi:</label>
+        <input type="range" id="rotate" name="rotate" min="-180" max="180" value="0">
+    </div>
+    <button id="saveButton" style="display: none;">Save Image</button>
+
+    <script>
+        const fileInput = document.getElementById('fileInput');
+        const uploadForm = document.getElementById('uploadForm');
+        const canvas = document.getElementById('canvas');
+        const uploadedImage = document.getElementById('uploadedImage');
+        const sleepi = document.getElementById('sleepi');
+        const saveButton = document.getElementById('saveButton');
+        const scaleInput = document.getElementById('scale');
+        const rotateInput = document.getElementById('rotate');
+        const controls = document.getElementById('controls');
+
+        let scaleFactor = 1;
+
+        uploadForm.addEventListener('submit', function(event) {
+            event.preventDefault();
+            const formData = new FormData(uploadForm);
+            fetch('/upload', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('Image URL:', data.image_url);
+                uploadedImage.src = data.image_url;
+                uploadedImage.onload = function() {
+                    // Calculate scale factor to fit the image within the viewport
+                    const maxWidth = 800; // Maximum width
+                    const maxHeight = 600; // Maximum height
+                    const imgWidth = uploadedImage.naturalWidth;
+                    const imgHeight = uploadedImage.naturalHeight;
+
+                    scaleFactor = Math.min(maxWidth / imgWidth, maxHeight / imgHeight);
+
+                    canvas.style.width = imgWidth * scaleFactor + 'px';
+                    canvas.style.height = imgHeight * scaleFactor + 'px';
+                    canvas.style.display = 'inline-block';
+                    saveButton.style.display = 'block';
+                    controls.style.display = 'block';
+                }
+            })
+            .catch(error => console.error('Error:', error));
+        });
+
+        function makeElementDraggable(element) {
+            let isDragging = false;
+            let shiftX, shiftY;
+
+            element.addEventListener('mousedown', function(e) {
+                e.preventDefault();
+                isDragging = true;
+                shiftX = e.clientX - element.getBoundingClientRect().left;
+                shiftY = e.clientY - element.getBoundingClientRect().top;
+            });
+
+            document.addEventListener('mousemove', function(e) {
+                if (isDragging) {
+                    e.preventDefault();
+                    let pageX = e.pageX - canvas.getBoundingClientRect().left;
+                    let pageY = e.pageY - canvas.getBoundingClientRect().top;
+                    element.style.left = pageX - shiftX + 'px';
+                    element.style.top = pageY - shiftY + 'px';
+                }
+            });
+
+            document.addEventListener('mouseup', function() {
+                isDragging = false;
+            });
+
+            element.ondragstart = function() {
+                return false;
+            };
+        }
+
+        makeElementDraggable(sleepi);
+
+        // Scale functionality for Sleepi
+        scaleInput.addEventListener('input', function() {
+            let scaleValue = scaleInput.value;
+            sleepi.style.width = scaleValue + '%';
+            sleepi.style.height = 'auto'; // Maintain aspect ratio
+        });
+
+        // Rotate functionality for Sleepi
+        rotateInput.addEventListener('input', function() {
+            let rotateValue = rotateInput.value;
+            sleepi.style.transform = `rotate(${rotateValue}deg)`;
+        });
+
+        saveButton.addEventListener('click', function() {
+            const sleepiRect = sleepi.getBoundingClientRect();
+            const uploadedImageRect = uploadedImage.getBoundingClientRect();
+            const offsetX = (sleepiRect.left - uploadedImageRect.left + sleepiRect.width / 2) / scaleFactor;
+            const offsetY = (sleepiRect.top - uploadedImageRect.top + sleepiRect.height / 2) / scaleFactor;
+            const width = sleepiRect.width / scaleFactor;
+            const height = sleepiRect.height / scaleFactor;
+            const rotation = rotateInput.value;
+
+            const data = {
+                filename: uploadedImage.src.split('/').pop(),
+                offsetX: offsetX,
+                offsetY: offsetY,
+                width: width,
+                height: height,
+                rotation: rotation
+            };
+
+            fetch('/process', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.blob())
+            .then(blob => {
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                a.download = 'final_image.png';
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+            })
+            .catch(error => console.error('Error:', error));
+        });
+    </script>
+</body>
+</html>
