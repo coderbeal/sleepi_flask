@@ -139,8 +139,10 @@
         saveButton.addEventListener('click', function() {
             const sleepiRect = sleepi.getBoundingClientRect();
             const uploadedImageRect = uploadedImage.getBoundingClientRect();
-            const offsetX = (sleepiRect.left - uploadedImageRect.left + sleepiRect.width / 2) / scaleFactor;
-            const offsetY = (sleepiRect.top - uploadedImageRect.top + sleepiRect.height / 2) / scaleFactor;
+            const canvasRect = canvas.getBoundingClientRect();
+
+            const offsetX = (sleepiRect.left - uploadedImageRect.left) / scaleFactor;
+            const offsetY = (sleepiRect.top - uploadedImageRect.top) / scaleFactor;
             const width = sleepiRect.width / scaleFactor;
             const height = sleepiRect.height / scaleFactor;
             const rotation = rotateInput.value;
